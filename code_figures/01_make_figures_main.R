@@ -1,0 +1,201 @@
+# ─────────────────────────────────────────────────────────────────────
+# 01_make_figures_main.R
+# Reproduce MAIN-PAPER figures (Figures 1–5) from CSV inputs.
+# Outputs: ../figures_main/ as 600-DPI PNG + TIFF (publication-ready)
+# ─────────────────────────────────────────────────────────────────────
+rm(list = ls())
+
+in_dir  <- file.path("..", "inputs_main")
+out_dir <- file.path("..", "figures_main")
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+
+# ── Global palette ───────────────────────────────────────────────────
+col_sel  <- "#2C6FAC"   # steel-blue  (selected / TC-PVSS)
+col_base <- "#B0B0B0"   # neutral grey (baseline)
+col_pos  <- "#2C6FAC"   # positive improvement
+col_neg  <- "#D94F4F"   # negative improvement
+col_tau  <- "#888888"    # tau threshold line
+col_grid <- "#E8E8E8"   # subtle grid
+
+# ── Helper: publication-grade par defaults ───────────────────────────
+pub_par <- function(...) {
+  par(family = "sans",
+      mar    = c(4.2, 4.8, 2.2, 1.0),  # bottom, left, top, right
+      mgp    = c(2.8, 0.7, 0),          # axis title, labels, line
+      tcl    = -0.3,                      # tick length
+      las    = 1,                         # horizontal axis labels
+      cex.main = 1.05,
+      cex.lab  = 0.95,
+      cex.axis = 0.85,
+      ...)
+}
+
+# ── Helper: save dual format ─────────────────────────────────────────
+save_fig <- function(basename, width = 6, height = 4.5, expr) {
+  for (ext in c("png", "tif")) {
+    if (ext == "png") {
+      png(file.path(out_dir, paste0(basename, ".png")),
+          width = width, height = height, units = "in", res = 600,
+          bg = "white")
+    } else {
+      tiff(file.path(out_dir, paste0(basename, ".tif")),
+           width = width, height = height, units = "in", res = 600,
+           compression = "lzw", bg = "white")
+    }
+    pub_par()
+    eval(expr)
+    dev.off()
+  }
+}
+
+# ── Helper: subtle horizontal grid lines ─────────────────────────────
+add_grid <- function(at) abline(h = at, col = col_grid, lwd = 0.5)
+
+# ── Load data ────────────────────────────────────────────────────────
+summary  <- read.csv(file.path(in_dir, "summary_tables.csv"))
+by_ind   <- read.csv(file.path(in_dir, "performance_by_industry.csv"))
+by_split <- read.csv(file.path(in_dir, "performance_by_outer_split.csv"))
+freq_f   <- file.path(in_dir, "model_frequency_by_outer_split.csv")
+freq     <- read.csv(if (file.exists(freq_f)) freq_f
+                      else file.path(in_dir, "model_frequency.csv"))
+
+n_splits <- nrow(by_split)
+
+# =====================================================================
+#  Figure 1 – Model selection frequency across outer splits
+# =====================================================================
+save_fig("Fig1_Model_Selection_Frequency", width = 4.5, height = 4.5, expr = quote({
+  bp <- barplot(freq$freq, names.arg = freq$model_id,
+                col = col_sel, border = NA,
+                ylim = c(0, 0.75),
+                ylab = "Selection frequency",
+                xlab = "Model",
+                main = paste0("Model selection frequency (n = ", n_splits, " outer splits)"))
+  add_grid(seq(0.1, 0.7, 0.1))
+  barplot(freq$freq, names.arg = freq$model_id,
+          col = col_sel, border = NA, add = TRUE)
+  text(bp, freq$freq + 0.025,
+       labels = sprintf("%.0f%%", freq$freq * 100),
+       cex = 0.85, font = 2)
+  box(bty = "l")
+}))
+
+# =====================================================================
+#  Figure 2 – Optional direct-path stability (inclusion probabilities)
+# =====================================================================
+stab <- subset(summary, section == "stability")
+inc  <- c(stab$p_E_L[1], stab$p_Q_L[1], stab$p_V_L[1])
+names(inc) <- c(expression("E" %->% "L"),
+                expression("Q" %->% "L"),
+                expression("V" %->% "L"))
+bar_col <- ifelse(inc >= 0.6, col_sel, col_neg)
+
+save_fig("Fig2_Path_Stability", width = 4.5, height = 4.5, expr = quote({
+  bp <- barplot(inc, col = bar_col, border = NA,
+                ylim = c(0, 1.12), ylab = "Inclusion probability",
+                main = "Optional direct-path stability",
+                names.arg = c(expression("E" %->% "L"),
+                              expression("Q" %->% "L"),
+                              expression("V" %->% "L")))
+  add_grid(seq(0.2, 1.0, 0.2))
+  barplot(inc, col = bar_col, border = NA, add = TRUE,
+          names.arg = c(expression("E" %->% "L"),
+                        expression("Q" %->% "L"),
+                        expression("V" %->% "L")))
+  abline(h = 0.6, lty = 2, col = col_tau, lwd = 1.2)
+  text(bp[1], 0.63, expression(tau == 0.6), cex = 0.75, col = col_tau, pos = 4)
+  text(bp, inc + 0.035,
+       labels = sprintf("%.2f", inc),
+       cex = 0.80, font = 2)
+  box(bty = "l")
+}))
+
+# =====================================================================
+#  Figure 3 – RMSE distribution across outer splits
+# =====================================================================
+save_fig("Fig3_RMSE_Boxplot", width = 4.5, height = 4.5, expr = quote({
+  boxplot(by_split$RMSE_selected, by_split$RMSE_baseline,
+          names     = c("Selected", "Baseline"),
+          col       = c(col_sel, col_base),
+          border    = c("#1A4A7A", "#707070"),
+          outcol    = c("#1A4A7A", "#707070"),
+          outpch    = 1, outcex = 0.7,
+          medlwd    = 2,
+          whisklty  = 1,
+          staplewid = 0.3,
+          ylab      = "RMSE (REPUR)",
+          main      = paste0("RMSE across outer splits (n = ", n_splits, ")"))
+  add_grid(seq(1.10, 1.50, 0.05))
+  boxplot(by_split$RMSE_selected, by_split$RMSE_baseline,
+          names = c("Selected", "Baseline"),
+          col = c(col_sel, col_base), border = c("#1A4A7A", "#707070"),
+          outcol = c("#1A4A7A", "#707070"),
+          outpch = 1, outcex = 0.7, medlwd = 2,
+          whisklty = 1, staplewid = 0.3, add = TRUE)
+  box(bty = "l")
+}))
+
+# =====================================================================
+#  Figure 4 – MAE distribution across outer splits
+# =====================================================================
+save_fig("Fig4_MAE_Boxplot", width = 4.5, height = 4.5, expr = quote({
+  boxplot(by_split$MAE_selected, by_split$MAE_baseline,
+          names     = c("Selected", "Baseline"),
+          col       = c(col_sel, col_base),
+          border    = c("#1A4A7A", "#707070"),
+          outcol    = c("#1A4A7A", "#707070"),
+          outpch    = 1, outcex = 0.7,
+          medlwd    = 2,
+          whisklty  = 1,
+          staplewid = 0.3,
+          ylab      = "MAE (REPUR)",
+          main      = paste0("MAE across outer splits (n = ", n_splits, ")"))
+  add_grid(seq(0.75, 1.05, 0.05))
+  boxplot(by_split$MAE_selected, by_split$MAE_baseline,
+          names = c("Selected", "Baseline"),
+          col = c(col_sel, col_base), border = c("#1A4A7A", "#707070"),
+          outcol = c("#1A4A7A", "#707070"),
+          outpch = 1, outcex = 0.7, medlwd = 2,
+          whisklty = 1, staplewid = 0.3, add = TRUE)
+  box(bty = "l")
+}))
+
+# =====================================================================
+#  Figure 5 – RMSE improvement by industry
+# =====================================================================
+ind_labels <- c("1001" = "Manufacturing",
+                "3003" = "Retail Trade",
+                "3013" = "Health Care",
+                "5001" = "Finance")
+by_ind$RMSE_impr <- (by_ind$RMSE_baseline - by_ind$RMSE_selected) /
+                     by_ind$RMSE_baseline * 100
+by_ind <- by_ind[order(-by_ind$RMSE_impr), ]
+bar_cols5 <- ifelse(by_ind$RMSE_impr >= 0, col_pos, col_neg)
+lab5 <- paste0(by_ind$industry, "\n",
+               ind_labels[as.character(by_ind$industry)])
+
+save_fig("Fig5_RMSE_Improvement_By_Industry", width = 6, height = 4.5, expr = quote({
+  par(mar = c(5.5, 4.8, 2.2, 1.0))
+  y_range <- range(by_ind$RMSE_impr) * c(1.15, 1.15)
+  bp <- barplot(by_ind$RMSE_impr, names.arg = lab5,
+                col = bar_cols5, border = NA,
+                ylim = y_range,
+                ylab = "RMSE improvement (%)",
+                main = "RMSE improvement by industry (baseline \u2212 selected)")
+  add_grid(seq(-2, 10, 2))
+  barplot(by_ind$RMSE_impr, names.arg = lab5,
+          col = bar_cols5, border = NA, add = TRUE)
+  abline(h = 0, lwd = 0.8)
+  # Value labels
+  nudge <- ifelse(by_ind$RMSE_impr >= 0, 0.25, -0.25)
+  text(bp, by_ind$RMSE_impr + nudge,
+       labels = sprintf("%+.1f%%", by_ind$RMSE_impr),
+       cex = 0.75, font = 2)
+  # Sample size annotation
+  text(bp, rep(y_range[1] * 0.85, nrow(by_ind)),
+       labels = paste0("n = ", formatC(by_ind$n_predictions, big.mark = ",")),
+       cex = 0.65, col = "#666666")
+  box(bty = "l")
+}))
+
+cat("Done. Wrote main figures to:", out_dir, "\n")

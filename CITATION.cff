@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this code or data, please cite the associated paper."
+title: "TC-PVSS for PLS-SEM: Reproducibility Package"
+type: software
+version: 1.0.0
+date-released: "2026-03-01"
+license: MIT
+authors:
+  - name: "Anonymous"
+keywords:
+  - PLS-SEM
+  - model selection
+  - nested cross-validation
+  - prediction
+  - stability selection
+  - ACSI
+  - PLSpredict
+  - CVPAT
+preferred-citation:
+  type: article
+  title: "Theory-Constrained, Prediction-Validated Specification Search for PLS-SEM: A Transparent Model Selection Protocol"
+  authors:
+    - name: "Anonymous"
+  journal: "Journal of Marketing Management"
+  year: 2026
+  notes: "Special Issue on Model Selection (under review)"

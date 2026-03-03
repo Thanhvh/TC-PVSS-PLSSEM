@@ -1,0 +1,12 @@
+.Rhistory
+RData
+.Rproj.user/
+*.Rproj
+*.tmp
+*.bak
+*.swp
+*.docx
+*.pdf
+.DS_Store
+Thumbs.db
+desktop.ini
